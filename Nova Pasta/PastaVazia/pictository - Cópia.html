@@ -1,0 +1,351 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>GMF Pictository</title>
+  
+	<style>
+		div{
+			text-align:center;
+		}
+		.stuff{
+			width:150px;
+			height:80px;
+			padding-top:70px;
+			background: url('../img/github.jpg');
+			display: inline-block;
+			margin-right:15px;
+		}
+		.clearPadding{
+			padding-top:0px;
+		}
+	</style>
+  
+</head>
+<body>
+	<div id="loading" style="display:none;">
+		<img src="../img/loader.gif" />
+	</div>
+  <div id="login">
+		<div id="primaryLogin">
+			<!--<input type="text" value="Your GitHub Username" id="gtUsername" onFocus="clearField(this,'Your GitHub Username')"/><br />
+			<input type="text" value="Your GitHub Password" id="gtPassword" onFocus="clearField(this,'Your GitHub Password',true)"/><br />-->
+			<input type="text" value="FelipeVieiraDantas" id="gtUsername" onFocus="clearField(this,'Your GitHub Username')"/><br />
+			<input type="text" value="senha123" id="gtPassword" onFocus="clearField(this,'Your GitHub Password',true)"/><br />
+			<input type="button" value="Start Pictositoring!" onClick="logInGitHub()"/>
+			<div id="loginError" style="visibility:hidden;color:red;"></div>
+		</div>
+  </div>
+  <div id="repo" style="display:none;">
+		<div id="primaryRepo">And here are your repositories! Choose the one we will work with this file.</div>
+		<div id="secundaryRepo" style="width:100%;height:200px; overflow-x: auto; overflow-y: hidden;">
+			<div id="containerRepo" style="width: 100%; white-space: nowrap;">
+			
+			</div>
+		</div>
+		<div id="thirdRepo"></div>
+  </div>
+  <div id="contents" style="display:none;">
+		<div id="primaryContents">Last boring step! Choose the PSD we will work on! </div>
+		<div id="secundaryContents" style="width:100%;height:200px; overflow-x: auto; overflow-y: hidden;">
+			<div id="containerContents" style="width: 100%; white-space: nowrap;">
+			
+			</div>
+		</div>
+  </div>
+  <div id="versions" style="display:none;">
+		<div id="primaryVersions" style="width:100%;height:200px; overflow-x: auto; overflow-y: hidden;">
+			<div id="containerVersions" style="width: 100%; white-space: nowrap;">
+			
+			</div>
+		</div>
+		<div id="secundaryVersions"></div>
+  </div>
+  
+  <div id="image-diff" class="small-drop-zone">
+									Diff will appear here.
+	</div>
+	<div id="diff-results" style="display:none;">
+									<p>
+										<strong>The second image is <span id="mismatch"></span>% different compared to the first.
+										<span id="differentdimensions" style="display:none;">And they have different dimensions.</span></strong>
+									</p>
+									<p>
+										Use the buttons above to change the comparison algorithm.  Perhaps you don't care about color? Annoying antialiasing causing too much noise?  Resemble.js offers multiple comparison options.
+									</p>
+								</div>
+								
+								<p id="thesame" style="display:none;">
+									<strong>These images are the same!</strong>
+								</p>
+  <script src="../lib/cookie.js"></script>
+  <script src="../lib/base64.js"></script>
+  <script src="../lib/underscore-min.js"></script>
+  <script src="../lib/psd.parser.min.js"></script>
+  <script src="../lib/resemble.js"></script>
+  <script src="../github.js"></script>
+  
+  <script>
+  
+  //declarating our pretty github instance
+  var github;
+  //our user logged in!
+  var user, username;
+  //let's keep track on user's own repositories as well...
+  var myRepositories;
+  // the repository we will work on!
+  var repo ;
+  // the path of the file we are pictositoring
+  var pathPictositoring;
+  
+  
+//	Simple function to clear the value of an *obj* input, if its text is the same as the *condition*.
+//	If *password* is true, it also changes the input's type.
+	function clearField(obj,condition,password){
+		if(obj.value == condition){
+			obj.value = "";
+			if(password){
+				obj.type="password";
+			}
+		}
+	}
+	
+//	Function called when the users tries to login into github. 
+	function logInGitHub(){
+		document.getElementById('primaryLogin').style.display= "none";
+		document.getElementById('loading').style.display= "block";
+		username = document.getElementById('gtUsername').value;
+		var pass = document.getElementById('gtPassword').value;
+		
+		github = new Github({
+		  username: username,
+		  password: pass
+		});
+		
+		user = github.getUser();
+		
+		user.repos(function(err, repos) {
+			if(err!=undefined){
+				//Nope. Something went wrong. Take this console.log and be sad about it:
+				console.log(err);
+				document.getElementById('primaryLogin').style.display= "block";
+				document.getElementById('loading').style.display= "none";
+				document.getElementById('loginError').style.visibility= "visible";
+				document.getElementById('loginError').innerHTML = "Error connecting! Are you sure you got your info right? You got any repositories? You got internet? Github is up? The world isn't ending?";
+			}else{
+				//Yey! You're in!
+				document.getElementById('login').style.display='none';
+				document.getElementById('loading').style.display= "none";
+				myRepositories = repos;
+				selectRepositories();
+			}
+		
+		});
+	}
+	
+//	Function to let the user pick what repository are we going to shake things up.	
+	function selectRepositories(){
+		document.getElementById('repo').style.display= "block";
+		
+		myRepositories.forEach(function(entry) {
+//			for each repository, we will add an div with its name.
+			var newDiv = document.createElement('div');
+			newDiv.className = 'stuff';
+			newDiv.innerHTML = entry.name;
+//			when the user pass the mouse over the repository, its description show below.
+			newDiv.onmouseover = function(){
+				document.getElementById('thirdRepo').innerHTML = entry.description;
+			}
+			newDiv.onmouseout = function(){
+				document.getElementById('thirdRepo').innerHTML = "";
+			}
+//			when the user clicks it, choose the repository
+			newDiv.onclick = function(){
+				document.getElementById('loading').style.display= "block";
+				document.getElementById('repo').style.display= "none";
+				repo = github.getRepo(username, entry.name);
+				getRepoContentAt();
+			}
+			document.getElementById('containerRepo').appendChild(newDiv);
+		});
+		
+		
+	}
+	
+//	Function to get all the contents in a determinated repository and path, but shows only the folders and psds
+	function getRepoContentAt(path){
+	
+		if(path==undefined){
+			path = "";
+		}
+		document.getElementById('containerContents').innerHTML = "";
+		
+		repo.contents("master", path, function(err, contents) {
+			
+			document.getElementById('contents').style.display= "block";
+			document.getElementById('loading').style.display= "none";
+			
+			contents = JSON.parse(contents);
+			contents.forEach(function(entry) {
+//				for each content, verify if its a folder or a psd
+				if(entry.type == "dir"){
+					var newDiv = document.createElement('div');
+					newDiv.className = 'stuff';
+					newDiv.innerHTML = entry.name;
+					document.getElementById('containerContents').appendChild(newDiv);
+//					when the user clicks a folder, load the contents again
+					newDiv.onclick = function(){
+						document.getElementById('loading').style.display= "block";
+						document.getElementById('contents').style.display= "none";
+						getRepoContentAt(entry.path);
+					}
+				}else{
+					if(entry.name.substring(entry.name.length - 3) == "psd"){
+						var newDiv = document.createElement('div');
+//						Temporário! Colocar o leitor de PSD!
+						newDiv.className = 'stuff';
+						newDiv.innerHTML = entry.name;
+						document.getElementById('containerContents').appendChild(newDiv);
+						newDiv.onclick = function(){
+//							When clicking a psd, get all of its commits
+							document.getElementById('loading').style.display= "block";
+							document.getElementById('contents').style.display= "none";
+							pathPictositoring = entry.path;
+							repo.getCommits({path:pathPictositoring}, function(err, com) {showVersions(err,com)});
+						}
+					}
+				}
+			
+			});
+		
+		
+		}, false);
+	}
+	
+	
+//	This function makes the magic happen! Takes the error or the commits and then asks for the file to show
+	function showVersions(err,com){
+		document.getElementById('loading').style.display= "none";
+		document.getElementById('versions').style.display= "block";
+		document.getElementById('containerVersions').innerHTML = "";
+		
+		com.reverse();
+		
+		com.forEach(function(entry) {
+//			for each commit, we will add an div with its content.
+			var newDiv = document.createElement('div');
+			newDiv.className = 'stuff';
+			newDiv.style.paddingTop = '0px';
+			newDiv.style.height = '150px';
+//			when the user pass the mouse over the version, its description show below.
+			newDiv.onmouseover = function(){
+				document.getElementById('secundaryVersions').innerHTML = entry.commit.author.date + " - " + entry.commit.author.name + ":<br />" + 
+				entry.commit.message;
+			}
+			newDiv.onmouseout = function(){
+				document.getElementById('secundaryVersions').innerHTML = "";
+			}
+//			when the user clicks it, it will oooooopen
+			/*newDiv.onclick = function(){
+				document.getElementById('loading').style.display= "block";
+				document.getElementById('repo').style.display= "none";
+				repo = github.getRepo(username, entry.name);
+				getRepoContentAt();
+			}*/
+			document.getElementById('containerVersions').appendChild(newDiv);
+			repo.read(entry.sha, pathPictositoring, function(err, data) {showVersion(err,data,newDiv)});
+
+		
+		});
+	}
+	
+	
+	var file;
+	var file1;
+	var resembleControl;
+	
+//	Function to show version into a canvas in the target div
+	function showVersion(err,data,targetDiv){
+	
+		var input = new Uint8Array(data);
+		var parser = new PSD.Parser(input);
+
+		parser.parse();
+
+		// image data
+		var canvito = parser.imageData.createCanvas(parser.header);
+		canvito.style.width = '150px';
+		canvito.style.height = '150px';
+		targetDiv.appendChild(canvito);
+
+		console.log("PSD.Parser:", parser);
+		
+		if(file){
+			file1 = parser.header;
+			resembleControl = resemble(file).compareTo(file1).onComplete(onComplete);
+		}else{
+			file = parser.header;
+		}
+		
+	}
+	
+	
+	function onComplete(data){
+		var time = Date.now();
+		var diffImage = new Image();
+		diffImage.src = data.getImageDataUrl();
+
+		document.getElementById('image-diff').innerHTML = diffImage;
+
+		/*$(diffImage).click(function(){
+			window.open(diffImage.src, '_blank');
+		});*/
+
+		//$('#buttons').show();
+
+		if(data.misMatchPercentage == 0){
+			document.getElementById('thesame').style.display = "block";
+			document.getElementById('diff-results').style.display = "none";
+		} else {
+			document.getElementById('mismatch').innerHTML = data.misMatchPercentage;
+			if(!data.isSameDimensions){
+				document.getElementById('differentdimensions').style.display = "block";
+			} else {
+				document.getElementById('differentdimensions').style.display = "none";
+			}
+			document.getElementById('diff-results').style.display = "block";
+			document.getElementById('thesame').style.display = "none";
+		}
+	}
+	
+  
+  </script>
+  
+  
+  
+  
+  
+  
+	<script>
+	
+	/*var user = "FelipeVieiraDantas";
+	var pass = "senha123";
+	
+	var github = new Github({
+	  username: user,
+	  password: pass
+	});
+	
+	
+	var repo = github.getRepo(user, "TesteFelipe");
+	repo.show(function(err, repo) {console.log("show",repo)});
+	repo.contents("master", "", function(err, contents) {console.log("contents",contents)}, false);
+	repo.listBranches(function(err, branches) {console.log("branch",branches)});
+	repo.getTree('af21ed09c464094deca11fc92a653a776c5b6dd7', function(err, tree) {console.log("tree",tree)});
+	repo.getTree('master?recursive=true', function(err, tree) {console.log("recursivetree",tree)});
+	repo.getSha('master', 'pictository.psd', function(err, sha) {console.log("sha",sha)});
+	repo.getRef('heads/master', function(err, sha) {console.log("ref",sha)});
+	repo.getCommits(null,function(err, com) {console.log("commits",com)});
+	repo.read('af21ed09c464094deca11fc92a653a776c5b6dd7', 'pictository.psd', function(err, data) {console.log(data)});*/
+	</script>
+</body>
+</html>
